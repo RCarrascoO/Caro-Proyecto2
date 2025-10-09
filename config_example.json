@@ -1,0 +1,10 @@
+{
+  "broker": "127.0.0.1",
+  "port": 1883,
+  "topic": "DATA/MP",
+  "client_id": "cliente1",
+  "bot_token": "<PON_TU_TOKEN_AQUI>",
+  "chat_id": "<PON_TU_CHAT_ID>",
+  "simulate": true,
+  "publish_interval": 2
+}
