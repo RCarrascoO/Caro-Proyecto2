@@ -1,6 +1,12 @@
 {
   "client_id": "client2",
-  "simulate": true,
+  "simulate": false,
+  "broker": "127.0.0.1",
+  "port": 1883,
+  "topic": "DATA/MP",
   "bot_token": "",
-  "chat_id": ""
+  "chat_id": "",
+  "save_to_disk": true,
+  "save_when_full": true,
+  "save_path": "./reports"
 }

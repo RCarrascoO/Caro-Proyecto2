@@ -36,7 +36,13 @@ def default_config():
         "bot_token": "",
         "chat_id": "",
         "simulate": False,
-        "publish_interval": 2
+        "publish_interval": 2,
+        # Guardado de imágenes en modo real
+        "save_to_disk": False,
+        # si true guarda solo cuando el buffer alcance 10 muestras
+        "save_when_full": True,
+        # carpeta donde guardar las imágenes
+        "save_path": "./reports"
     }
 
 
@@ -87,13 +93,42 @@ class MQTTClient:
             LOG.warning("Payload con formato inesperado: %s", payload)
             return
         self.buffer.append(parsed)
-        # Generar y enviar gráfico cada vez (puedes cambiar la lógica para enviar solo con 10 muestras)
+        # Lógica de guardado/envío configurable
         try:
-            img = self.generate_plot()
-            if self.cfg.get("bot_token") and self.cfg.get("chat_id"):
-                self.send_telegram(img)
+            need_save = False
+            if self.cfg.get("save_to_disk"):
+                if not self.cfg.get("save_when_full"):
+                    need_save = True
+                else:
+                    need_save = (len(self.buffer) >= self.buffer.maxlen)
+
+            # Generar la imagen solo si vamos a guardarla o a enviarla
+            if need_save or (self.cfg.get("bot_token") and self.cfg.get("chat_id")):
+                img = self.generate_plot()
+                # Guardar a disco si está configurado
+                if need_save:
+                    save_dir = self.cfg.get("save_path") or "./reports"
+                    try:
+                        import os
+                        os.makedirs(save_dir, exist_ok=True)
+                        ts = int(time.time())
+                        fname = f"{save_dir}/report_{self.cfg.get('client_id')}_{ts}.png"
+                        with open(fname, "wb") as f:
+                            f.write(img.getbuffer())
+                        LOG.info("Guardada imagen en %s", fname)
+                    except Exception:
+                        LOG.exception("Error guardando imagen en disco")
+
+                # Enviar a Telegram si está configurado
+                if self.cfg.get("bot_token") and self.cfg.get("chat_id"):
+                    try:
+                        # Rewind buffer antes de enviar
+                        img.seek(0)
+                        self.send_telegram(img)
+                    except Exception:
+                        LOG.exception("Error enviando foto a Telegram")
         except Exception:
-            LOG.exception("Error generando o enviando el gráfico")
+            LOG.exception("Error en procesamiento del mensaje")
 
     def parse_payload(self, payload: str):
         # Espera: mp01,mp25,mp10,temp,hr

@@ -4,6 +4,9 @@
   "broker": "127.0.0.1",
   "port": 1883,
   "topic": "DATA/MP",
-  "bot_token": "",
-  "chat_id": ""
+  "bot_token": "8092522168:AAHsi32Z1cBDRGT_62coHYMXHeeue6KlqKg",
+  "chat_id": "7150579336",
+  "save_to_disk": true,
+  "save_when_full": true,
+  "save_path": "./reports"
 }

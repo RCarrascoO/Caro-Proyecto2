@@ -118,3 +118,25 @@ Cómo retomar desde otra máquina (por ejemplo con GPT-5 mini)
 
 Agradecimiento
 Gracias por la sesión de hoy — avancé la base del proyecto (scripts, configuración y utilidades de inicio). Si quieres que deje preparados más cambios (por ejemplo Dockerfiles, pruebas unitarias o envío solo con 10 muestras), dímelo y lo preparo para la siguiente sesión.
+
+Estado hoy (13-10-2025)
+----------------------
+- Se probaron localmente el envío a Telegram y la generación de imágenes.
+- Se verificó que el bot puede enviar mensajes/fotos (token y chat_id validados).
+- Se implementó y probó la lógica de `save_when_full` (actualmente restaurada a `true`).
+- Se añadieron utilidades de depuración: `send_test_image.py`, `publish_test.py`, `sniff_collect.py`.
+
+Resultados inmediatos:
+- Cliente `client1` generó una imagen `report_client1_<timestamp>.png` cuando el buffer alcanzó 10 muestras.
+- Se movieron imágenes antiguas a `reports_backup/` para limpiar la carpeta antes de nuevas pruebas.
+
+Siguientes pasos recomendados al retomar:
+1. Ejecutar la Opción B (cliente en primer plano) y validar logs / tiempos de envío.
+2. Propagar tokens a `client2..client4` y probar uno a uno.
+3. Añadir logging a fichero y retries en el envío a Telegram.
+
+Nota rápida: estás cerrando la sesión por batería — si lo deseas puedo:
+- mover los archivos temporales restantes a `reports_backup/` y dejar los procesos detenidos, o
+- dejar el entorno tal cual para que continúes en cuanto tengas energía.
+
+Fin del registro de hoy.
