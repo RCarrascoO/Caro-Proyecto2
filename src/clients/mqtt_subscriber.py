@@ -1,11 +1,6 @@
 #!/usr/bin/env python3
 """
-Cliente MQTT suscriptor genérico.
-- Suscribe a un topic, parsea mensajes con 5 valores: mp01, mp25, mp10, temp, hr
-- Mantiene un buffer circular de 10 muestras y genera un gráfico con matplotlib
-- Envía la imagen a Telegram usando Bot API (requests)
-
-Soporta modo simulado para pruebas sin broker.
+Migrated mqtt_subscriber into src/clients - original functionality kept.
 """
 import argparse
 import json

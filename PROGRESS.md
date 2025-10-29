@@ -1,87 +1,75 @@
 PROGRESS — Caro-Proyecto2
 
-Fecha: 13-10-2025
+Fecha: 29-10-2025
 
-Este documento resume lo realizado hasta ahora, cómo reproducir las pruebas y los siguientes pasos recomendados (incluyendo cómo probar envío a Telegram).
+Resumen corto (qué se hizo)
+- Reorganización: el código y las utilidades se reorganizaron en carpetas claras:
+  - `src/` contiene el código principal: `plot_utils.py`, `http_server/app.py`, `http_client/send_data.py`, y `clients/mqtt_subscriber.py`.
+  - `tools/` contiene utilidades de prueba (publish/sniff/send image).
+  - `archive/` contiene archivos y artefactos que no son necesarios para el entregable (configs con tokens, logs, imágenes antiguas, helpers de Mosquitto).
+- Se extrajo la lógica de graficado a `src/plot_utils.py` (genera PNG con 6 subplots: 5 series + histograma).
+- Se añadió un esqueleto de servidor Flask en `src/http_server/app.py` con endpoints `/upload-json`, `/upload-stream` y `/plot/<client_id>` (usa SQLite para almacenar mediciones).
+- Se creó un cliente de prueba en `src/http_client/send_data.py` (envía JSON y stream). Actualmente envía datos de ejemplo; lo conectaremos al parser de `data.dat` en el siguiente paso.
 
-Estado general
-- Entorno Python creado (`.venv`) y dependencias instaladas (ver `requirements.txt`).
-- Broker Mosquitto instalado y probado localmente (pub/sub OK).
-- Script principal: `mqtt_subscriber.py` (cliente MQTT parametrizable) implementado.
-- Archivos de config: `config_example.json`, `client1.json` .. `client4.json`.
-- Script helper: `start_services.ps1` para iniciar Mosquitto/subscriber y los clientes.
-- Backend Matplotlib forzado a `Agg` (para generar imágenes en background sin GUI).
-- Guardado controlado: añadida lógica `save_to_disk`, `save_when_full`, `save_path`.
-- Carpeta `reports/` para almacenar las imágenes generadas por los clientes.
-- README actualizado con instrucciones y las 3 opciones (A/B/C).
+Qué quedó fuera (archive)
+- `client1.json`..`client4.json` (archivados porque contenían tokens y no son necesarios para el entregable)
+- `start_services.ps1`, `mosquitto_log.txt`, `sniff_results.json`, y los scripts/archivos de prueba originales (moved to `archive/`).
 
-Archivos creados/actualizados (principales)
-- `mqtt_subscriber.py` — cliente MQTT que:
-  - parsea mensajes CSV (mp01,mp25,mp10,temp,hr)
-  - mantiene buffer circular de 10 muestras
-  - genera gráfico con 5 subplots y lo exporta a PNG
-  - envía la imagen a Telegram si `bot_token` y `chat_id` están configurados
-  - guarda la imagen en disco según `save_to_disk` / `save_when_full`
-- `client1.json`..`client4.json` — ejemplos de configuración por cliente
-- `start_services.ps1` — helper PowerShell para iniciar servicios y clientes
-- `README.md` — instrucciones resumidas
-- `PROGRESS.md` — este archivo
+Por qué esta decisión
+- El PDF pide un HTTP Client (POST JSON + stream), un HTTP Server (Flask/SQLite) y generación de PNGs con matplotlib. MQTT, Mosquitto y el bot de Telegram no son requeridos por la especificación, por eso se archivaron.
 
-Comandos útiles (PowerShell)
-- Activar entorno:
+Próximo paso recomendado (qué hacer ahora)
+1) Implementar el parser de `data.dat` (PRIORIDAD)
+   - Crear `src/data_parser.py` que lea el binario con la estructura mostrada en el PDF:
+     - Campos: id (Byte), te (Byte), hr (Byte), mp01/mp25/mp10/h01/h25/h50/h10 (Word cada uno).
+     - Asunción por defecto: little-endian (si no indicas lo contrario).
+   - Función principal: `parse_file(path) -> list[dict]` con campos legibles.
 
-  .\.venv\Scripts\Activate.ps1
+2) Generador de prueba (si no dispones de `data.dat` real)
+   - Crear `tools/generate_data_dat.py` para producir `data.dat` sintético y así poder probar todo el flujo sin el micro.
 
-- Suscribir y publicar (prueba rápida broker):
+3) Conectar el HTTP client al parser
+   - Actualizar `src/http_client/send_data.py` para leer `data.dat` con `data_parser`, enviar primero JSON a `/upload-json` y luego enviar el stream raw a `/upload-stream`.
 
-  mosquitto_sub -h 127.0.0.1 -t "DATA/#" -v
-  mosquitto_pub -h 127.0.0.1 -t "DATA/MP" -m "12.3,25.7,31.0,23.5,45.2"
+4) Completar servidor y pruebas
+   - Asegurar que `/upload-json` guarda en SQLite correctamente.
+   - Añadir (opcional) parsing del stream en `/upload-stream` usando `data_parser`.
+   - Probar endpoint `/plot/<client_id>` para que devuelva un PNG con promedio móvil ventana=10.
 
-- Ejecutar cliente en primer plano (client1):
+Cómo ejecutar (rápido)
+1. Crear y activar entorno (PowerShell):
+```powershell
+py -3 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+2. Ejecutar servidor Flask (desde la raíz):
+```powershell
+python src\http_server\app.py
+# abre en http://127.0.0.1:5000
+```
+3. Enviar datos de ejemplo con el cliente de prueba:
+```powershell
+python src\http_client\send_data.py --server http://127.0.0.1:5000 --client-id client1
+```
+4. Ver la gráfica generada (en navegador):
+  http://127.0.0.1:5000/plot/client1
 
-  python mqtt_subscriber.py --config client1.json --loglevel INFO
+Decisiones pendientes y preguntas para ti
+- Confirmar endianness del `data.dat` (asumo little-endian por defecto). Si puedes subir un `data.dat` de ejemplo lo usaré para validar.
+- ¿Deseas que añada soporte para MariaDB desde el inicio o lo dejamos opcional y documentado? (recomiendo empezar con SQLite y dejar MariaDB como opcional).
 
-- Lanzar los 4 clientes en background con helper (si Mosquitto activo):
+Siguientes acciones que puedo hacer ahora (elige una)
+- A) Implementar `src/data_parser.py` + `tools/generate_data_dat.py` (recomendado). Esto permitirá pruebas end-to-end.
+- B) Implementar integración del cliente para leer `data.dat` y enviar los dos POST.
+- C) Añadir tests y documentación detallada de uso para evaluación.
 
-  powershell -ExecutionPolicy Bypass -File .\start_services.ps1 -StartClients
+Estado del todo
+- Reestructuración y refactor: COMPLETADA
+- Auditoría y archivado de archivos no necesarios: COMPLETADA
+- Parser `data.dat`: PENDIENTE (PRIORIDAD)
+- Cliente → Server end-to-end con `data.dat`: PENDIENTE
 
-Pruebas realizadas y resultados
-- Pub/Sub: verificado con `mosquitto_sub` y `mosquitto_pub` (mensaje recibido: `DATA/MP 12.3,25.7,31.0,23.5,45.2`).
-- Guardado de imágenes:
-  - Probamos `save_to_disk:true` en `client1` con `save_when_full:false` y generó imágenes inmediatamente.
-  - Luego configuramos `save_when_full:true` para `client1..client4` y verificamos que cada cliente guarda una única imagen en `reports/` cuando su buffer alcanzó 10 muestras.
-  - Ejemplos de archivos generados: `reports/report_client1_1760374960.png`, `report_client2_1760374961.png`, etc.
+Si confirmas la A (parser + generador sintético), empiezo ahora y te dejo el primer `data.dat` de prueba y el parser listo para usar.
 
-Cómo probar envío a Telegram (paso a paso)
-1. Crear un bot con BotFather en Telegram y copiar el `bot_token`.
-2. Conseguir tu `chat_id` enviando un mensaje al bot y consultando `getUpdates` con:
-   - Abre en el navegador:
-     https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates
-   - Busca `chat` → `id` en la respuesta (o añade `@userinfobot` como alternativa).
-3. Edita `client1.json` (o el cliente que quieras usar) y coloca `bot_token` y `chat_id`:
-
-  {
-    "client_id": "client1",
-    "simulate": false,
-    "broker": "127.0.0.1",
-    "port": 1883,
-    "topic": "DATA/MP",
-    "bot_token": "<PON_TU_TOKEN_AQUI>",
-    "chat_id": "<PON_TU_CHAT_ID>",
-    "save_to_disk": true,
-    "save_when_full": true,
-    "save_path": "./reports"
-  }
-
-4. Reinicia el cliente y publica datos hasta que el buffer esté lleno (o fuerza `save_when_full:false` temporalmente). El cliente deberá enviar la imagen al chat configurado.
-
-Seguridad y privacidad
-- No subas `bot_token` ni `chat_id` al repositorio público.
-- Para producción considera TLS y autenticación para Mosquitto.
-
-Próximos pasos recomendados
-- Validar envío a Telegram con un cliente (client1) y comprobar tiempos/errores.
-- Si todo OK, propagar tokens/config a otros clientes y gestionar reintentos/ratelimit.
-- Opcional: Dockerizar clientes, convertir en servicios, añadir logs rotativos o una cola si el tráfico es alto.
-
-Si quieres que haga ahora la prueba de Telegram, indícame (a) el `bot_token` y (b) el `chat_id` — o prefieres que te guíe para obtenerlos y lo ejecutes tú; en ese caso te doy comandos exactos.
+Fin del resumen.

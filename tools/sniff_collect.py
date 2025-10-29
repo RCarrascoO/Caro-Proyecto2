@@ -19,7 +19,6 @@ def on_message(client, userdata, msg):
     with lock:
         results.append({'topic': msg.topic, 'payload': payload, 'ts': int(time.time())})
         if len(results) >= userdata.get('max_messages', 10):
-            # stop loop
             client.disconnect()
 
 
@@ -38,7 +37,6 @@ def main():
     client.on_connect = on_connect
     client.on_message = on_message
     client.connect(args.broker, args.port, 60)
-    # run loop in this thread; will exit when disconnect called or on timeout
     def run_loop():
         client.loop_forever()
 
@@ -54,13 +52,11 @@ def main():
             time.sleep(0.2)
     except KeyboardInterrupt:
         pass
-    # ensure disconnect
     try:
         client.disconnect()
     except Exception:
         pass
 
-    # write results
     with open('sniff_results.json', 'w', encoding='utf-8') as f:
         json.dump(results, f, ensure_ascii=False, indent=2)
     print('Wrote sniff_results.json with', len(results), 'entries')

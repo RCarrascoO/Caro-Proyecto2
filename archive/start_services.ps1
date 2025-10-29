@@ -52,15 +52,16 @@ if ($StartClients) {
     $python = Join-Path -Path (Get-Location) -ChildPath '.venv\Scripts\python.exe'
     if (Test-Path $python) {
         for ($i = 1; $i -le 4; $i++) {
-            $cfg = "client$i.json"
-            if (Test-Path $cfg) {
-                Write-Output "Iniciando client$i con $cfg"
-                Start-Process -NoNewWindow -FilePath $python -ArgumentList "mqtt_subscriber.py --config $cfg --loglevel INFO"
-                Start-Sleep -Milliseconds 300
-            } else {
-                Write-Output "No encontrado $cfg, saltando"
+                $cfg = "client$i.json"
+                if (Test-Path $cfg) {
+                    Write-Output "Iniciando client$i con $cfg"
+                    # Ejecutar el subscriber desde la nueva ruta en src/clients
+                    Start-Process -NoNewWindow -FilePath $python -ArgumentList "src\clients\mqtt_subscriber.py --config $cfg --loglevel INFO"
+                    Start-Sleep -Milliseconds 300
+                } else {
+                    Write-Output "No encontrado $cfg, saltando"
+                }
             }
-        }
     } else {
         Write-Output "No se encontró el python del venv en $python. Asegúrate de crear el .venv primero."
     }

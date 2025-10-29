@@ -15,8 +15,10 @@ python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-Archivos principales
-- `mqtt_subscriber.py`: cliente MQTT genérico (también modo simulado).
+Archivos principales (nueva estructura)
+- `src/clients/mqtt_subscriber.py`: cliente MQTT genérico (también modo simulado).
+- `src/http_server/app.py`: servidor Flask para recibir JSON y streams y generar PNGs.
+- `src/http_client/send_data.py`: cliente de prueba que envía JSON y stream al servidor.
 - `config_example.json`: plantilla de configuración.
 - `client1.json`..`client4.json`: ejemplos para ejecutar 4 instancias.
 - `requirements.txt`: dependencias ya generadas.
@@ -26,10 +28,10 @@ Ejecutar en modo simulado (rápido, sin broker)
 .# activar venv
 .\.venv\Scripts\Activate.ps1
 
-python mqtt_subscriber.py --config client1.json
-python mqtt_subscriber.py --config client2.json
-python mqtt_subscriber.py --config client3.json
-python mqtt_subscriber.py --config client4.json
+python src\clients\mqtt_subscriber.py --config client1.json
+python src\clients\mqtt_subscriber.py --config client2.json
+python src\clients\mqtt_subscriber.py --config client3.json
+python src\clients\mqtt_subscriber.py --config client4.json
 ```
 
 Cada cliente en modo simulado generará imágenes `report_<client_id>_<timestamp>.png` en la carpeta del proyecto.
@@ -90,7 +92,7 @@ Opción B — Ejecutar 1 cliente real y validar su procesamiento
 2. Ejecuta el cliente en primer plano para ver logs y generar una imagen:
 ```powershell
 .\.venv\Scripts\Activate.ps1
-python mqtt_subscriber.py --config client1.json --loglevel INFO
+python src\clients\mqtt_subscriber.py --config client1.json --loglevel INFO
 ```
 3. Verifica que se genera `report_client1_<timestamp>.png` en la carpeta del proyecto (o que se envía a Telegram si configuras `bot_token`/`chat_id`).
 
