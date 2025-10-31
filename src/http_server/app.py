@@ -1,3 +1,10 @@
+import sys
+import os
+# Ensure project root is on sys.path so `src` package imports work when running the script directly
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 from flask import Flask, request, jsonify, send_file
 import sqlite3
 import os
@@ -5,6 +12,11 @@ import time
 from io import BytesIO
 
 from src.plot_utils import build_timeseries_plot
+try:
+    from src.data_parser import parse_bytes
+except Exception:
+    # dynamic load fallback
+    parse_bytes = None
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), '..', '..', 'data')
 DB_PATH = os.path.join(DATA_DIR, 'data.db')
@@ -70,7 +82,55 @@ def upload_stream():
     fname = os.path.join(stream_dir, f'stream_{ts}.bin')
     with open(fname, 'wb') as f:
         f.write(data_bytes)
-    return jsonify({'status': 'ok', 'saved': fname})
+    # Decide whether to attempt parsing: header X-PARSE: 1 or query ?parse=1
+    do_parse = False
+    try:
+        hdr = request.headers.get('X-PARSE')
+        if hdr and hdr.strip() == '1':
+            do_parse = True
+    except Exception:
+        pass
+    if not do_parse:
+        parse_q = request.args.get('parse')
+        if parse_q and parse_q in ('1', 'true', 'True'):
+            do_parse = True
+
+    inserted = 0
+    if do_parse:
+        # attempt to import parse_bytes if not available
+        parser = parse_bytes
+        if parser is None:
+            try:
+                from src.data_parser import parse_bytes as _pb
+                parser = _pb
+            except Exception:
+                parser = None
+        if parser:
+            try:
+                records = parser(data_bytes)
+                if records:
+                    conn = sqlite3.connect(DB_PATH)
+                    c = conn.cursor()
+                    now = int(time.time())
+                    # Insert each record; use station id as client_id
+                    total = len(records)
+                    for i, r in enumerate(records):
+                        # timestamp spread over last total samples 1 minute apart
+                        ts_rec = now - (total - 1 - i) * 60
+                        client_id = f'client{r.get("id")}'
+                        c.execute('INSERT INTO measurements (client_id, ts, mp01, mp25, mp10, temp, hr) VALUES (?,?,?,?,?,?,?)',
+                                  (client_id, ts_rec, r.get('mp01'), r.get('mp25'), r.get('mp10'), r.get('te'), r.get('hr')))
+                        inserted += 1
+                    conn.commit()
+                    conn.close()
+            except Exception as e:
+                # parsing attempted but failed; report but keep saved file
+                return jsonify({'status': 'saved', 'saved': fname, 'parse_error': str(e)}), 500
+
+    resp = {'status': 'ok', 'saved': fname}
+    if inserted:
+        resp['inserted'] = inserted
+    return jsonify(resp)
 
 
 @app.route('/plot/<client_id>', methods=['GET'])
