@@ -77,6 +77,22 @@ begin
   Result := DateTimeToUnix(Now);
 end;
 
+function GetFileSize(const AFile: string): Int64;
+var
+  fs: TFileStream;
+begin
+  Result := 0;
+  if FileExists(AFile) then
+  begin
+    fs := TFileStream.Create(AFile, fmOpenRead or fmShareDenyNone);
+    try
+      Result := fs.Size;
+    finally
+      fs.Free;
+    end;
+  end;
+end;
+
 function BuildJSONPayload(const regs: TArray<TRegistro>): string;
 var
   i: Integer;
@@ -126,8 +142,9 @@ begin
   try
     http.Request.ContentType := 'application/json';
     resp := http.Post(URL, ss);
-    Writeln('JSON POST response:');
-    Writeln(resp);
+    Writeln('  • Respuesta servidor: ', http.ResponseCode, ' ', http.ResponseText);
+    if Length(resp) > 0 then
+      Writeln('  • Datos: ', resp);
   finally
     ss.Free;
     http.Free;
@@ -146,8 +163,9 @@ begin
     fs := TFileStream.Create(FilePath, fmOpenRead or fmShareDenyNone);
     try
       resp := http.Post(URL, fs);
-      Writeln('Stream POST response:');
-      Writeln(resp);
+      Writeln('  • Respuesta servidor: ', http.ResponseCode, ' ', http.ResponseText);
+      if Length(resp) > 0 then
+        Writeln('  • Datos: ', resp);
     finally
       fs.Free;
     end;
@@ -165,6 +183,16 @@ begin
     Result := FalseVal;
 end;
 
+procedure PrintBanner;
+begin
+  Writeln('╔═══════════════════════════════════════════════════╗');
+  Writeln('║       HTTP CLIENT - MODO CONSOLA                  ║');
+  Writeln('║       Cliente Pascal - Proyecto #2                ║');
+  Writeln('║       By Alberto Caro - INFO1157                  ║');
+  Writeln('╚═══════════════════════════════════════════════════╝');
+  Writeln;
+end;
+
 procedure Usage;
 begin
   Writeln('Usage: pas_client_send_data <server_url> <data_file>');
@@ -176,33 +204,73 @@ var
   dataFile: string;
   regs: TArray<TRegistro>;
   jsonPayload: string;
+  fileSize: Int64;
+  numRecords: Integer;
 begin
   try
+    PrintBanner;
+    
     if ParamCount < 2 then
     begin
+      Writeln('[ERROR] Argumentos insuficientes');
+      Writeln;
       Usage;
       Halt(1);
     end;
+    
     serverURL := ParamStr(1);
     dataFile := ParamStr(2);
+
+    Writeln('[INFO] Configuración:');
+    Writeln('  • Servidor: ', serverURL);
+    Writeln('  • Archivo datos: ', dataFile);
+    Writeln;
+
+    if not FileExists(dataFile) then
+    begin
+      Writeln('[ERROR] Archivo no encontrado: ', dataFile);
+      Halt(1);
+    end;
+
+    fileSize := GetFileSize(dataFile);
+    numRecords := fileSize div RECORD_SIZE;
+    Writeln('[INFO] Archivo cargado:');
+    Writeln('  • Tamaño: ', fileSize, ' bytes');
+    Writeln('  • Registros: ', numRecords);
+    Writeln;
 
     regs := ReadLastRecords(dataFile, 10);
     if Length(regs) = 0 then
     begin
-      Writeln('No records found in ', dataFile);
+      Writeln('[ERROR] No se encontraron registros en ', dataFile);
       Halt(1);
     end;
 
     jsonPayload := BuildJSONPayload(regs);
-    Writeln('Sending JSON...');
+    
+    Writeln('[1/2] Enviando datos JSON (POST /upload-json)...');
+    Writeln('  • Content-Type: application/json');
+    Writeln('  • Registros: ', Length(regs));
     PostJSON(serverURL + '/upload-json', jsonPayload);
+    Writeln('  ✓ JSON enviado exitosamente');
+    Writeln;
 
-    Writeln('Sending raw stream...');
+    Writeln('[2/2] Enviando datos Stream (POST /upload-stream)...');
+    Writeln('  • Content-Type: application/octet-stream');
+    Writeln('  • Tamaño: ', fileSize, ' bytes');
     PostStream(serverURL + '/upload-stream', dataFile);
+    Writeln('  ✓ Stream enviado exitosamente');
+    Writeln;
 
-    Writeln('Done.');
+    Writeln('╔═══════════════════════════════════════════════════╗');
+    Writeln('║              PROCESO COMPLETADO                   ║');
+    Writeln('╚═══════════════════════════════════════════════════╝');
   except
     on E: Exception do
-      Writeln('Error: ', E.ClassName, ': ', E.Message);
+    begin
+      Writeln;
+      Writeln('[ERROR] ', E.ClassName, ': ', E.Message);
+      Halt(1);
+    end;
   end;
 end.
