@@ -7,6 +7,14 @@ Requisitos mínimos
 - Entorno virtual (recomendado)
 - Broker MQTT (p. ej. Mosquitto) — opcional en modo simulado
 
+Quick start (recommended)
+
+From project root, run the single-entry script which runs the full E2E flow (install deps, generate sample data, start server, send client, download plot):
+
+```powershell
+py -3 run_all.py
+```
+
 Instalación rápida (PowerShell)
 ```powershell
 py -3 -m venv .venv
