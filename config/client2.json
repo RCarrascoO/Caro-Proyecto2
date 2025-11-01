@@ -1,0 +1,6 @@
+{
+  "client_id": "client2",
+  "server_url": "http://127.0.0.1:5000",
+  "data_file": "outputs/data.dat",
+  "description": "Cliente HTTP 2 - Estación ambiental 2"
+}

@@ -89,7 +89,11 @@ def main():
                     'mp25': r.get('mp25'),
                     'mp10': r.get('mp10'),
                     'temp': r.get('te'),
-                    'hr': r.get('hr')
+                    'hr': r.get('hr'),
+                    'h01': r.get('h01'),
+                    'h25': r.get('h25'),
+                    'h50': r.get('h50'),
+                    'h10': r.get('h10')
                 })
             payload = {'client_id': f'client{records[-1].get("id") if records else args.client_id}', 'samples': samples}
         else:
